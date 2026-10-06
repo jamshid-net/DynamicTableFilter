@@ -19,8 +19,8 @@ jobs:
         with:
           dotnet-version: '10.0.x'
           
-      - name: Pack Package
-        run: dotnet pack TableFilter/TableFilter.csproj -c Release -o ./out
+      - name: Build and Pack
+        run: dotnet build TableFilter/TableFilter.csproj -c Release
         
       - name: Push to NuGet
-        run: dotnet nuget push ./out/*.nupkg --source https://api.nuget.org/v3/index.json --api-key ${{ secrets.GITHUB_TOKEN }}
+        run: dotnet nuget push TableFilter/bin/Release/*.nupkg --source https://api.nuget.org/v3/index.json --api-key ${{ secrets.GITHUB_TOKEN }}
