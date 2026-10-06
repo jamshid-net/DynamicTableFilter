@@ -12,12 +12,13 @@
     <PackageId>DynamicTableFilter</PackageId>
     <Version>1.0.0</Version>
     <Authors>Jamshid</Authors>
+    <Title>DynamicTableFilter for EF Core</Title>
     <Description>A powerful, dynamic EF Core and IQueryable filtering, sorting, and pagination library for .NET.</Description>
     <PackageProjectUrl>https://github.com/jamshid-net/DynamicTableFilter</PackageProjectUrl>
     <RepositoryUrl>https://github.com/jamshid-net/DynamicTableFilter.git</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
-    <PackageTags>EFCore;Filter;IQueryable;Pagination;DynamicQuery;TableFilter;EntityFrameworkCore</PackageTags>
+    <PackageTags>EFCore;Filter;IQueryable;Pagination;DynamicQuery;TableFilter;EntityFrameworkCore;LINQ;REST;API;Grid;Sorting</PackageTags>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
   </PropertyGroup>
