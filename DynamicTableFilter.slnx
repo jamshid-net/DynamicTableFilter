@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="TableFilter.Tests/TableFilter.Tests.csproj" />
+  <Project Path="TableFilter/TableFilter.csproj" />
+</Solution>

@@ -1,0 +1,64 @@
+using System;
+using System.Linq;
+using System.Linq.Expressions;
+
+namespace DynamicTableFilter;
+
+/// <summary>
+/// Provides extension methods for <see cref="IQueryable{T}"/> to easily apply dynamic filtering, sorting, and pagination.
+/// </summary>
+public static class QueryableExtension
+{
+    /// <summary>
+    /// Applies dynamic filtering, sorting, and pagination to the given query based on the provided request model.
+    /// It dynamically constructs expression trees for filtering and sorting, preventing the need for manual where/orderby clauses.
+    /// </summary>
+    /// <typeparam name="T">The type of the elements in the queryable collection.</typeparam>
+    /// <param name="query">The initial queryable collection.</param>
+    /// <param name="pageRequest">The request object containing filter conditions, sorting configurations, and pagination parameters (PageIndex, PageSize).</param>
+    /// <param name="ignoreSkipTake">If set to <c>true</c>, pagination (Skip and Take) will be bypassed, returning all filtered and sorted results.</param>
+    /// <returns>A new <see cref="IQueryable{T}"/> with all filters, sorting, and pagination applied.</returns>
+    /// <exception cref="InvalidOperationException">Thrown when a filter cannot be applied due to unsupported data types or invalid property mapping.</exception>
+    public static IQueryable<T> ApplyPageRequest<T>(
+        this IQueryable<T> query, 
+        FilterRequest pageRequest,
+        bool ignoreSkipTake = false)
+    {
+        var predicate = ExpressionBuilder.BuildPredicate<T>(pageRequest);
+        query = query.Where(predicate);
+
+        // Apply sorting if required
+        if (pageRequest.Sort is { Count: > 0 })
+        {
+            query = pageRequest.Sort.Aggregate(query, ApplySorting);
+        }
+
+        // Apply paging
+        if (!ignoreSkipTake)
+            query = query.Skip(pageRequest.PageIndex * pageRequest.PageSize)
+                         .Take(pageRequest.PageSize);
+
+        return query;
+    }
+
+    private static IOrderedQueryable<T> ApplySorting<T>(IQueryable<T> query, Sort sort)
+    {
+        var parameter = Expression.Parameter(typeof(T), "x");
+        MemberExpression property = Expression.Property(parameter, sort.Key);
+        var lambda = Expression.Lambda(property, parameter);
+
+        var methodName = sort.Value switch
+        {
+            SortEnum.Asc => "OrderBy",
+            SortEnum.Desc => "OrderByDescending",
+            _ => "OrderBy"
+        };
+
+        var method = typeof(Queryable)
+            .GetMethods()
+            .Single(m => m.Name == methodName && m.GetParameters().Length == 2)
+            .MakeGenericMethod(typeof(T), property.Type);
+
+        return (IOrderedQueryable<T>)method.Invoke(null, new object[] { query, lambda })!;
+    }
+}
