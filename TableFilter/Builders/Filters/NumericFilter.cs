@@ -22,10 +22,12 @@ internal static class NumericFilter
             var genericListType = typeof(List<>).MakeGenericType(member.Type);
             var numberList = Activator.CreateInstance(genericListType);
             var addMethod = genericListType.GetMethod("Add");
+            
+            var targetType = Nullable.GetUnderlyingType(member.Type) ?? member.Type;
 
             foreach (var value in filteredValues)
             {
-                var convertedValue = Convert.ChangeType(value, member.Type);
+                var convertedValue = Convert.ChangeType(value, targetType);
                 addMethod?.Invoke(numberList, new[] { convertedValue });
             }
 
@@ -34,11 +36,11 @@ internal static class NumericFilter
             return Expression.Call(listConstant, containsMethod, member);
         }
 
-        var targetType = Nullable.GetUnderlyingType(member.Type) ?? member.Type;
-        var nonArrayFilterValue = Convert.ChangeType(filterValue, targetType);
-        var constant = Expression.Constant(nonArrayFilterValue, targetType);
+        var scalarTargetType = Nullable.GetUnderlyingType(member.Type) ?? member.Type;
+        var nonArrayFilterValue = Convert.ChangeType(filterValue, scalarTargetType);
+        var constant = Expression.Constant(nonArrayFilterValue, scalarTargetType);
 
-        if (member.Type != targetType)
+        if (member.Type != scalarTargetType)
         {
             return Expression.Equal(member, Expression.Convert(constant, member.Type));
         }

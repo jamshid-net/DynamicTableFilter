@@ -2,6 +2,7 @@ using System;
 using System.Linq;
 using System.Linq.Expressions;
 using System.Text.Json;
+using System.Collections.Generic;
 
 namespace DynamicTableFilter;
 
@@ -110,6 +111,9 @@ public static class ExpressionBuilder
 
         return jsonElement.ValueKind switch
         {
+            JsonValueKind.Array => jsonElement.EnumerateArray()
+                .Select(item => ConvertJsonElement(item, targetType))
+                .ToList(),
             JsonValueKind.String => underlyingType == typeof(DateOnly)
                 ? DateOnly.Parse(jsonElement.GetString()!)
                 : jsonElement.GetString()!,
