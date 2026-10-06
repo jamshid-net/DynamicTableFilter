@@ -33,18 +33,39 @@ public static class ExpressionBuilder
 
     private static Expression BuildSinglePredicate<T>(ParameterExpression param, Filter filter, bool isEntityFramework)
     {
-        if (filter.Key.EndsWith(".from", StringComparison.OrdinalIgnoreCase) ||
-            filter.Key.EndsWith(".to", StringComparison.OrdinalIgnoreCase))
+        bool isFromTo = filter.Key.EndsWith(".from", StringComparison.OrdinalIgnoreCase) ||
+                        filter.Key.EndsWith(".to", StringComparison.OrdinalIgnoreCase);
+
+        string propertyKey = isFromTo ? filter.Key.Split('.')[0] : filter.Key;
+        
+        MemberExpression member;
+        try
         {
-            return FromToFilter.Build(param, filter);
+            member = Expression.Property(param, propertyKey);
+        }
+        catch (ArgumentException)
+        {
+            throw new ArgumentException($"Property '{propertyKey}' was not found on type '{typeof(T).Name}'. Please ensure the filter key exactly matches the property name (case-sensitive).");
         }
 
-        MemberExpression member = Expression.Property(param, filter.Key);
         object filterValue = filter.Value;
 
         if (filterValue is JsonElement jsonElement)
         {
-            filterValue = ConvertJsonElement(jsonElement, member.Type);
+            try
+            {
+                filterValue = ConvertJsonElement(jsonElement, member.Type);
+            }
+            catch (Exception ex)
+            {
+                throw new ArgumentException($"Invalid value provided for property '{propertyKey}'. Expected type is '{member.Type.Name}', but the provided value could not be converted. Error: {ex.Message}", ex);
+            }
+        }
+
+        if (isFromTo)
+        {
+            bool isTo = filter.Key.EndsWith(".to", StringComparison.OrdinalIgnoreCase);
+            return FromToFilter.Build(member, filterValue, isTo);
         }
 
         if (member.Type.IsEnum || FilterHelper.IsNullableEnum(member.Type))
@@ -101,14 +122,18 @@ public static class ExpressionBuilder
                 TypeCode.Single => jsonElement.GetSingle(),
                 TypeCode.Decimal => jsonElement.GetDecimal(),
                 TypeCode.Byte => jsonElement.GetByte(),
+                TypeCode.Boolean => jsonElement.GetInt32() switch
+                {
+                    1 => true,
+                    0 => false,
+                    _ => throw new FormatException($"Invalid numeric value for boolean property. Expected 0 or 1, but received {jsonElement.GetInt32()}.")
+                },
                 _ => throw new InvalidOperationException($"Cannot convert JSON number to {targetType}."),
             },
             JsonValueKind.True or JsonValueKind.False => jsonElement.GetBoolean(),
-            // Null is valid for nullable target types — the caller ensures targetType is Nullable<T>
+            // Null is valid for nullable target types - the caller ensures targetType is Nullable<T>
             JsonValueKind.Null when Nullable.GetUnderlyingType(targetType) != null => null!,
             _ => throw new NotSupportedException($"JSON value kind {jsonElement.ValueKind} is not supported."),
         };
     }
 }
-
-

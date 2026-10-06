@@ -47,7 +47,15 @@ public static class QueryableExtension
     private static IOrderedQueryable<T> ApplySorting<T>(IQueryable<T> query, Sort sort)
     {
         var parameter = Expression.Parameter(typeof(T), "x");
-        MemberExpression property = Expression.Property(parameter, sort.Key);
+        MemberExpression property;
+        try
+        {
+            property = Expression.Property(parameter, sort.Key);
+        }
+        catch (ArgumentException)
+        {
+            throw new ArgumentException($"Sort property '{sort.Key}' was not found on type '{typeof(T).Name}'. Please ensure the sort key exactly matches the property name (case-sensitive).");
+        }
         var lambda = Expression.Lambda(property, parameter);
 
         var methodName = sort.Value switch
@@ -65,6 +73,7 @@ public static class QueryableExtension
         return (IOrderedQueryable<T>)method.Invoke(null, new object[] { query, lambda })!;
     }
 }
+
 
 
 

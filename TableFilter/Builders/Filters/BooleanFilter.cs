@@ -10,8 +10,18 @@ internal static class BooleanFilter
         if (FilterHelper.IsNullLikeFilterValue(filterValue))
             return Expression.Constant(true);
 
-        if (filterValue is not bool boolValue)
-            boolValue = Convert.ToBoolean(filterValue);
+        bool boolValue;
+        if (filterValue is bool b)
+        {
+            boolValue = b;
+        }
+        else
+        {
+            var strVal = filterValue.ToString()?.Trim();
+            if (strVal == "1") boolValue = true;
+            else if (strVal == "0") boolValue = false;
+            else boolValue = Convert.ToBoolean(filterValue);
+        }
 
         ConstantExpression constantBoolean = Expression.Constant(boolValue, member.Type);
         return Expression.Equal(member, constantBoolean);
