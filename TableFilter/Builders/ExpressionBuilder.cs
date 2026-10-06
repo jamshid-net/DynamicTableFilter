@@ -7,7 +7,7 @@ namespace DynamicTableFilter;
 
 public static class ExpressionBuilder
 {
-    public static Expression<Func<T, bool>> BuildPredicate<T>(FilterRequest pageRequest)
+    public static Expression<Func<T, bool>> BuildPredicate<T>(FilterRequest pageRequest, bool isEntityFramework = true)
     {
         if (pageRequest.Filter == null || !pageRequest.Filter.Any())
         {
@@ -25,13 +25,13 @@ public static class ExpressionBuilder
 
         ParameterExpression param = Expression.Parameter(typeof(T), "x");
         Expression combined = validFilters
-            .Select(filter => BuildSinglePredicate<T>(param, filter))
+            .Select(filter => BuildSinglePredicate<T>(param, filter, isEntityFramework))
             .Aggregate((current, predicate) => Expression.AndAlso(current, predicate));
 
         return Expression.Lambda<Func<T, bool>>(combined, param);
     }
 
-    private static Expression BuildSinglePredicate<T>(ParameterExpression param, Filter filter)
+    private static Expression BuildSinglePredicate<T>(ParameterExpression param, Filter filter, bool isEntityFramework)
     {
         if (filter.Key.EndsWith(".from", StringComparison.OrdinalIgnoreCase) ||
             filter.Key.EndsWith(".to", StringComparison.OrdinalIgnoreCase))
@@ -64,7 +64,7 @@ public static class ExpressionBuilder
 
         if (member.Type == typeof(string))
         {
-            return StringFilter.Build(filterValue, member);
+            return StringFilter.Build(filterValue, member, isEntityFramework);
         }
 
         if (FilterHelper.IsNumericType(member.Type))
@@ -110,3 +110,5 @@ public static class ExpressionBuilder
         };
     }
 }
+
+

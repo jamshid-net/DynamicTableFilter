@@ -11,7 +11,7 @@ namespace DynamicTableFilter;
 
 internal static class StringFilter
 {
-    public static Expression Build(object filterValue, MemberExpression member)
+    public static Expression Build(object filterValue, MemberExpression member, bool isEntityFramework)
     {
         if (FilterHelper.IsNullLikeFilterValue(filterValue))
             return Expression.Constant(true);
@@ -24,7 +24,7 @@ internal static class StringFilter
                     value.ToString()).ToList();
 
             var conditions = stringList.Select(str =>
-                CreateContainsExpression(member, str!)
+                CreateContainsExpression(member, str!, isEntityFramework)
             ).ToList();
 
             Expression combinedOrCondition = conditions.First();
@@ -42,40 +42,35 @@ internal static class StringFilter
             if (string.IsNullOrWhiteSpace(filterString))
                 return Expression.Constant(true);
 
-            return CreateContainsExpression(member, filterString);
+            return CreateContainsExpression(member, filterString, isEntityFramework);
         }
     }
 
-    /// <summary>
-    /// Creates an EF.Functions.Like() expression for database-agnostic case-insensitive pattern matching.
-    /// EF Core translates this to the appropriate SQL LIKE for each provider (SQL Server, PostgreSQL, MySQL, etc.).
-    /// </summary>
-    private static Expression CreateContainsExpression(MemberExpression member, string filterString)
+    private static Expression CreateContainsExpression(MemberExpression member, string filterString, bool isEntityFramework)
     {
-        // EF.Functions.Like(member, "%value%") — works across all EF Core database providers.
-        // SQL Server: LIKE is case-insensitive by default collation.
-        // PostgreSQL: LIKE is case-sensitive, so we apply LOWER() on both sides as fallback.
-        // MySQL: LIKE is case-insensitive by default collation.
-        // Using ToLower + Like pattern ensures consistent case-insensitive behavior everywhere.
-
         MethodInfo toLowerMethod = typeof(string).GetMethod("ToLower", Type.EmptyTypes)!;
         var lowerMember = Expression.Call(member, toLowerMethod);
 
-        var likePattern = $"%{filterString.ToLower()}%";
+        if (isEntityFramework)
+        {
+            var likePattern = "%$(filterString.ToLower())%";
+            MethodInfo likeMethod = typeof(DbFunctionsExtensions).GetMethod("Like", new[] { typeof(DbFunctions), typeof(string), typeof(string) })!;
+            var efFunctionsProperty = Expression.Property(null, typeof(EF), nameof(EF.Functions));
 
-        // Get EF.Functions.Like(string, string)
-        MethodInfo likeMethod = typeof(DbFunctionsExtensions)
-            .GetMethod("Like", new[] { typeof(DbFunctions), typeof(string), typeof(string) })!;
-
-        // EF.Functions is accessed via EF.Functions static property
-        var efFunctionsProperty = Expression.Property(null, typeof(EF), nameof(EF.Functions));
-
-        return Expression.Call(
-            null,
-            likeMethod,
-            efFunctionsProperty,
-            lowerMember,
-            Expression.Constant(likePattern)
-        );
+            return Expression.Call(
+                null,
+                likeMethod,
+                efFunctionsProperty,
+                lowerMember,
+                Expression.Constant(likePattern)
+            );
+        }
+        else
+        {
+            // Memory fallback for mocking/testing
+            var lowerConstant = Expression.Constant(filterString.ToLower());
+            MethodInfo containsMethod = typeof(string).GetMethod("Contains", new[] { typeof(string) })!;
+            return Expression.Call(lowerMember, containsMethod, lowerConstant);
+        }
     }
 }
