@@ -10,7 +10,7 @@
 
     <!-- NuGet Package Properties -->
     <PackageId>DynamicTableFilter</PackageId>
-    <Version>1.0.2</Version>
+    <Version>1.0.3</Version>
     <Authors>Jamshid</Authors>
     <Title>DynamicTableFilter for EF Core</Title>
     <Description>A powerful, dynamic EF Core and IQueryable filtering, sorting, and pagination library for .NET.</Description>
@@ -41,4 +41,5 @@
   </ItemGroup>
 
 </Project>
+
 

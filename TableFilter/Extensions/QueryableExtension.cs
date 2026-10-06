@@ -24,7 +24,10 @@ public static class QueryableExtension
         FilterRequest pageRequest,
         bool ignoreSkipTake = false)
     {
-        var predicate = ExpressionBuilder.BuildPredicate<T>(pageRequest);
+        // Detect if this is an in-memory query (List.AsQueryable) vs a real EF Core DbSet query.
+        // EnumerableQuery is the provider for in-memory LINQ; real EF Core uses its own provider.
+        bool isEntityFramework = query.Provider.GetType().FullName?.Contains("EntityFrameworkCore") == true;
+        var predicate = ExpressionBuilder.BuildPredicate<T>(pageRequest, isEntityFramework);
         query = query.Where(predicate);
 
         // Apply sorting if required
@@ -62,5 +65,6 @@ public static class QueryableExtension
         return (IOrderedQueryable<T>)method.Invoke(null, new object[] { query, lambda })!;
     }
 }
+
 
 

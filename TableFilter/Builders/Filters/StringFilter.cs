@@ -53,7 +53,7 @@ internal static class StringFilter
 
         if (isEntityFramework)
         {
-            var likePattern = "%$(filterString.ToLower())%";
+            var likePattern = $"%{filterString.ToLower()}%";
             MethodInfo likeMethod = typeof(DbFunctionsExtensions).GetMethod("Like", new[] { typeof(DbFunctions), typeof(string), typeof(string) })!;
             var efFunctionsProperty = Expression.Property(null, typeof(EF), nameof(EF.Functions));
 
@@ -74,3 +74,4 @@ internal static class StringFilter
         }
     }
 }
+
