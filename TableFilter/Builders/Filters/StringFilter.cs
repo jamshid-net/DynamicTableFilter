@@ -21,7 +21,12 @@ internal static class StringFilter
             var stringList = stringArray
                 .Select(value => value is JValue jValue ?
                     jValue.ToString(CultureInfo.InvariantCulture) :
-                    value.ToString()).ToList();
+                    value?.ToString())
+                .Where(s => !string.IsNullOrEmpty(s))
+                .ToList();
+
+            if (stringList.Count == 0)
+                return Expression.Constant(true);
 
             var conditions = stringList.Select(str =>
                 CreateContainsExpression(member, str!, isEntityFramework)
@@ -49,10 +54,10 @@ internal static class StringFilter
     private static Expression CreateContainsExpression(MemberExpression member, string filterString, bool isEntityFramework)
     {
         MethodInfo toLowerMethod = typeof(string).GetMethod("ToLower", Type.EmptyTypes)!;
-        var lowerMember = Expression.Call(member, toLowerMethod);
 
         if (isEntityFramework)
         {
+            var lowerMember = Expression.Call(member, toLowerMethod);
             var likePattern = $"%{filterString.ToLower()}%";
             MethodInfo likeMethod = typeof(DbFunctionsExtensions).GetMethod("Like", new[] { typeof(DbFunctions), typeof(string), typeof(string) })!;
             var efFunctionsProperty = Expression.Property(null, typeof(EF), nameof(EF.Functions));
@@ -68,9 +73,13 @@ internal static class StringFilter
         else
         {
             // Memory fallback for mocking/testing
+            var lowerMember = Expression.Call(member, toLowerMethod);
             var lowerConstant = Expression.Constant(filterString.ToLower());
             MethodInfo containsMethod = typeof(string).GetMethod("Contains", new[] { typeof(string) })!;
-            return Expression.Call(lowerMember, containsMethod, lowerConstant);
+            var containsCall = Expression.Call(lowerMember, containsMethod, lowerConstant);
+            
+            var notNull = Expression.NotEqual(member, Expression.Constant(null, typeof(string)));
+            return Expression.AndAlso(notNull, containsCall);
         }
     }
 }

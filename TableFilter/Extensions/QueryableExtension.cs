@@ -25,26 +25,40 @@ public static class QueryableExtension
         bool ignoreSkipTake = false)
     {
         // Detect if this is an in-memory query (List.AsQueryable) vs a real EF Core DbSet query.
-        // EnumerableQuery is the provider for in-memory LINQ; real EF Core uses its own provider.
-        bool isEntityFramework = query.Provider.GetType().FullName?.Contains("EntityFrameworkCore") == true;
+        bool isEntityFramework = query.Provider.GetType().Name != "EnumerableQuery`1";
         var predicate = ExpressionBuilder.BuildPredicate<T>(pageRequest, isEntityFramework);
         query = query.Where(predicate);
 
         // Apply sorting if required
         if (pageRequest.Sort is { Count: > 0 })
         {
-            query = pageRequest.Sort.Aggregate(query, ApplySorting);
+            bool firstSort = true;
+            foreach (var sort in pageRequest.Sort)
+            {
+                query = ApplySorting(query, sort, firstSort);
+                firstSort = false;
+            }
         }
 
         // Apply paging
         if (!ignoreSkipTake)
-            query = query.Skip(pageRequest.PageIndex * pageRequest.PageSize)
-                         .Take(pageRequest.PageSize);
+        {
+            int pageSize = pageRequest.PageSize > 0 ? pageRequest.PageSize : 10;
+            if (pageSize > 1000) pageSize = 1000;
+            
+            int pageIndex = Math.Max(0, pageRequest.PageIndex);
+            
+            long skip = (long)pageIndex * pageSize;
+            if (skip > int.MaxValue) skip = int.MaxValue;
+            
+            query = query.Skip((int)skip)
+                         .Take(pageSize);
+        }
 
         return query;
     }
 
-    private static IOrderedQueryable<T> ApplySorting<T>(IQueryable<T> query, Sort sort)
+    private static IOrderedQueryable<T> ApplySorting<T>(IQueryable<T> query, Sort sort, bool firstSort = true)
     {
         var parameter = Expression.Parameter(typeof(T), "x");
         MemberExpression property;
@@ -60,9 +74,9 @@ public static class QueryableExtension
 
         var methodName = sort.Value switch
         {
-            SortEnum.Asc => "OrderBy",
-            SortEnum.Desc => "OrderByDescending",
-            _ => "OrderBy"
+            SortEnum.Asc => firstSort ? "OrderBy" : "ThenBy",
+            SortEnum.Desc => firstSort ? "OrderByDescending" : "ThenByDescending",
+            _ => firstSort ? "OrderBy" : "ThenBy"
         };
 
         var method = typeof(Queryable)

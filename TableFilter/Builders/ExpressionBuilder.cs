@@ -97,7 +97,7 @@ public static class ExpressionBuilder
         {
             return NumericArrayFilter.Build(filterValue, member);
         }
-        if (member.Type == typeof(bool))
+        if (member.Type == typeof(bool) || member.Type == typeof(bool?))
         {
             return BooleanFilter.Build(filterValue, member);
         }
@@ -108,6 +108,30 @@ public static class ExpressionBuilder
     private static object ConvertJsonElement(JsonElement jsonElement, Type targetType)
     {
         var underlyingType = Nullable.GetUnderlyingType(targetType) ?? targetType;
+
+        if (underlyingType.IsEnum)
+        {
+            if (jsonElement.ValueKind == JsonValueKind.String)
+            {
+                return Enum.Parse(underlyingType, jsonElement.GetString()!, ignoreCase: true);
+            }
+            if (jsonElement.ValueKind == JsonValueKind.Number)
+            {
+                var enumUnderlying = Enum.GetUnderlyingType(underlyingType);
+                return Type.GetTypeCode(enumUnderlying) switch
+                {
+                    TypeCode.SByte => jsonElement.GetSByte(),
+                    TypeCode.Byte => jsonElement.GetByte(),
+                    TypeCode.Int16 => jsonElement.GetInt16(),
+                    TypeCode.UInt16 => jsonElement.GetUInt16(),
+                    TypeCode.Int32 => jsonElement.GetInt32(),
+                    TypeCode.UInt32 => jsonElement.GetUInt32(),
+                    TypeCode.Int64 => jsonElement.GetInt64(),
+                    TypeCode.UInt64 => jsonElement.GetUInt64(),
+                    _ => jsonElement.GetInt32()
+                };
+            }
+        }
 
         return jsonElement.ValueKind switch
         {

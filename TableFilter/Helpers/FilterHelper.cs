@@ -70,7 +70,7 @@ internal static class FilterHelper
         {
             string dateString when memberType == typeof(DateOnly) || memberType == typeof(DateOnly?) =>
                 DateOnly.TryParseExact(dateString, dateOnlyFormat, CultureInfo.InvariantCulture, DateTimeStyles.None, out var parsedDate)
-                    ? Expression.Constant(memberType == typeof(DateOnly) ? parsedDate : (DateOnly?)parsedDate, memberType)
+                    ? Expression.Constant(memberType == typeof(DateOnly) ? (isTo ? parsedDate.AddDays(1) : parsedDate) : (DateOnly?)(isTo ? parsedDate.AddDays(1) : parsedDate), memberType)
                     : throw new InvalidOperationException($"Cannot convert filter value '{filterValue}' to DateOnly."),
 
             string dateString when memberType == typeof(DateTime) || memberType == typeof(DateTime?) =>
@@ -83,7 +83,7 @@ internal static class FilterHelper
                     : throw new InvalidOperationException($"Cannot convert filter value '{filterValue}' to DateTime."),
 
             DateOnly dateOnlyValue when memberType == typeof(DateOnly) || memberType == typeof(DateOnly?) =>
-                Expression.Constant(memberType == typeof(DateOnly) ? dateOnlyValue : (DateOnly?)dateOnlyValue, memberType),
+                Expression.Constant(memberType == typeof(DateOnly) ? (isTo ? dateOnlyValue.AddDays(1) : dateOnlyValue) : (DateOnly?)(isTo ? dateOnlyValue.AddDays(1) : dateOnlyValue), memberType),
 
             DateTime dateTimeValue when memberType == typeof(DateTime) || memberType == typeof(DateTime?) =>
                 Expression.Constant(
