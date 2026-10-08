@@ -24,9 +24,7 @@ public static class QueryableExtension
         FilterRequest pageRequest,
         bool ignoreSkipTake = false)
     {
-        // Detect if this is an in-memory query (List.AsQueryable) vs a real EF Core DbSet query.
-        bool isEntityFramework = query.Provider.GetType().Name != "EnumerableQuery`1";
-        var predicate = ExpressionBuilder.BuildPredicate<T>(pageRequest, isEntityFramework);
+        var predicate = ExpressionBuilder.BuildPredicate<T>(pageRequest);
         query = query.Where(predicate);
 
         // Apply sorting if required
@@ -64,7 +62,20 @@ public static class QueryableExtension
         MemberExpression property;
         try
         {
-            property = Expression.Property(parameter, sort.Key);
+            if (sort.Key.Contains('.'))
+            {
+                var parts = sort.Key.Split('.');
+                Expression current = parameter;
+                foreach (var part in parts)
+                {
+                    current = Expression.Property(current, part);
+                }
+                property = (MemberExpression)current;
+            }
+            else
+            {
+                property = Expression.Property(parameter, sort.Key);
+            }
         }
         catch (ArgumentException)
         {

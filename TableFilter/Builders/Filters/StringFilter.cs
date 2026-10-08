@@ -11,7 +11,7 @@ namespace DynamicTableFilter;
 
 internal static class StringFilter
 {
-    public static Expression Build(object filterValue, MemberExpression member, bool isEntityFramework)
+    public static Expression Build(object filterValue, MemberExpression member)
     {
         if (FilterHelper.IsNullLikeFilterValue(filterValue))
             return Expression.Constant(true);
@@ -29,7 +29,7 @@ internal static class StringFilter
                 return Expression.Constant(true);
 
             var conditions = stringList.Select(str =>
-                CreateContainsExpression(member, str!, isEntityFramework)
+                CreateContainsExpression(member, str!)
             ).ToList();
 
             Expression combinedOrCondition = conditions.First();
@@ -47,40 +47,21 @@ internal static class StringFilter
             if (string.IsNullOrWhiteSpace(filterString))
                 return Expression.Constant(true);
 
-            return CreateContainsExpression(member, filterString, isEntityFramework);
+            return CreateContainsExpression(member, filterString);
         }
     }
 
-    private static Expression CreateContainsExpression(MemberExpression member, string filterString, bool isEntityFramework)
+    private static Expression CreateContainsExpression(MemberExpression member, string filterString)
     {
         MethodInfo toLowerMethod = typeof(string).GetMethod("ToLower", Type.EmptyTypes)!;
-
-        if (isEntityFramework)
-        {
-            var lowerMember = Expression.Call(member, toLowerMethod);
-            var likePattern = $"%{filterString.ToLower()}%";
-            MethodInfo likeMethod = typeof(DbFunctionsExtensions).GetMethod("Like", new[] { typeof(DbFunctions), typeof(string), typeof(string) })!;
-            var efFunctionsProperty = Expression.Property(null, typeof(EF), nameof(EF.Functions));
-
-            return Expression.Call(
-                null,
-                likeMethod,
-                efFunctionsProperty,
-                lowerMember,
-                Expression.Constant(likePattern)
-            );
-        }
-        else
-        {
-            // Memory fallback for mocking/testing
-            var lowerMember = Expression.Call(member, toLowerMethod);
-            var lowerConstant = Expression.Constant(filterString.ToLower());
-            MethodInfo containsMethod = typeof(string).GetMethod("Contains", new[] { typeof(string) })!;
-            var containsCall = Expression.Call(lowerMember, containsMethod, lowerConstant);
-            
-            var notNull = Expression.NotEqual(member, Expression.Constant(null, typeof(string)));
-            return Expression.AndAlso(notNull, containsCall);
-        }
+        var lowerMember = Expression.Call(member, toLowerMethod);
+        
+        var lowerConstant = Expression.Constant(filterString.ToLower());
+        MethodInfo containsMethod = typeof(string).GetMethod("Contains", new[] { typeof(string) })!;
+        var containsCall = Expression.Call(lowerMember, containsMethod, lowerConstant);
+        
+        var notNull = Expression.NotEqual(member, Expression.Constant(null, typeof(string)));
+        return Expression.AndAlso(notNull, containsCall);
     }
 }
 

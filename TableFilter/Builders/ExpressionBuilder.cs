@@ -8,7 +8,7 @@ namespace DynamicTableFilter;
 
 public static class ExpressionBuilder
 {
-    public static Expression<Func<T, bool>> BuildPredicate<T>(FilterRequest pageRequest, bool isEntityFramework = true)
+    public static Expression<Func<T, bool>> BuildPredicate<T>(FilterRequest pageRequest)
     {
         if (pageRequest.Filter == null || !pageRequest.Filter.Any())
         {
@@ -26,13 +26,13 @@ public static class ExpressionBuilder
 
         ParameterExpression param = Expression.Parameter(typeof(T), "x");
         Expression combined = validFilters
-            .Select(filter => BuildSinglePredicate<T>(param, filter, isEntityFramework))
+            .Select(filter => BuildSinglePredicate<T>(param, filter))
             .Aggregate((current, predicate) => Expression.AndAlso(current, predicate));
 
         return Expression.Lambda<Func<T, bool>>(combined, param);
     }
 
-    private static Expression BuildSinglePredicate<T>(ParameterExpression param, Filter filter, bool isEntityFramework)
+    private static Expression BuildSinglePredicate<T>(ParameterExpression param, Filter filter)
     {
         bool isFromTo = filter.Key.EndsWith(".from", StringComparison.OrdinalIgnoreCase) ||
                         filter.Key.EndsWith(".to", StringComparison.OrdinalIgnoreCase);
@@ -42,7 +42,20 @@ public static class ExpressionBuilder
         MemberExpression member;
         try
         {
-            member = Expression.Property(param, propertyKey);
+            if (propertyKey.Contains('.'))
+            {
+                var parts = propertyKey.Split('.');
+                Expression current = param;
+                foreach (var part in parts)
+                {
+                    current = Expression.Property(current, part);
+                }
+                member = (MemberExpression)current;
+            }
+            else
+            {
+                member = Expression.Property(param, propertyKey);
+            }
         }
         catch (ArgumentException)
         {
@@ -86,7 +99,7 @@ public static class ExpressionBuilder
 
         if (member.Type == typeof(string))
         {
-            return StringFilter.Build(filterValue, member, isEntityFramework);
+            return StringFilter.Build(filterValue, member);
         }
 
         if (FilterHelper.IsNumericType(member.Type))

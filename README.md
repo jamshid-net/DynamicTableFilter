@@ -51,20 +51,14 @@ public class UsersController : ControllerBase
         // 1. Get base query (Do NOT call .ToList() yet)
         IQueryable<User> query = _context.Users.AsNoTracking();
 
-        // 2. Count total records (before pagination)
-        int totalCount = await query.CountAsync();
+        // Dynamically apply Filters, Sorting, Pagination, and safely get the Total Count
+        var result = await query.ApplyPageRequestAsync(request);
 
-        // 3. Apply Filters, Sorting, and Pagination dynamically
-        query = query.ApplyPageRequest(request);
-
-        // 4. Execute SQL
-        var items = await query.ToListAsync();
-
-        // 5. Return Paged Response
+        // Return Paged Response
         return Ok(new 
         {
-            Data = items,
-            TotalCount = totalCount,
+            Data = result.Data,
+            TotalCount = result.TotalCount,
             PageIndex = request.PageIndex,
             PageSize = request.PageSize
         });
@@ -138,7 +132,14 @@ Append `.from` (>=) or `.to` (<) to the exact property key. Fully supported for 
 ```
 *(Date formats supported by default: `MM.dd.yyyy`, `yyyy-MM-dd`, `yyyy-MM-ddTHH:mm:ss`)*
 
-#### E. Array/Collection Properties
+#### E. Nested Properties (Navigation Properties)
+You can easily filter or sort by nested properties using dot notation (`.`).
+```json
+{ "key": "Department.Name", "value": "IT" },
+{ "key": "Author.Address.City", "value": "Tashkent" }
+```
+
+#### F. Array/Collection Properties
 If the C# property itself is an array (e.g., `public int[] Tags { get; set; }`), sending a single value checks if the array contains that value natively in SQL (`ANY`).
 ```json
 { "key": "Tags", "value": 42 }
